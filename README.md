@@ -90,6 +90,8 @@ devsecops-platform/
 - [ ] **Phase 9 — Alert-to-Case Automation (Optional)**: Connector script bridging alerts into TheHive cases.
 - [ ] **Phase 10 — End-to-End Demonstration and Documentation**: Full before/after rehearsal, walkthrough, and demo recording.
 
+> 📋 **Suivi d'avancement détaillé** : Consultez le fichier [AVANCEMENT.md](file:///c:/Users/Hamza/Downloads/projet%20s5/AVANCEMENT.md) pour le journal chronologique complet de chaque phase, les commandes exécutées et les résultats de validation.
+
 ---
 
 ## 5. Phase 0 Validation Checkpoint
