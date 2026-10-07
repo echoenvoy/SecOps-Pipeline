@@ -79,7 +79,7 @@ devsecops-platform/
 ## 4. Implementation Roadmap (11 Phases)
 
 - [x] **Phase 0 — Environment and Repository Setup**: Scaffolding, container networks, toolchain verification.
-- [ ] **Phase 1 — Target Application and Dockerization**: Web application with documented vulnerabilities and secure Dockerfile.
+- [x] **Phase 1 — Target Application and Dockerization**: Web application with documented vulnerabilities and secure Dockerfile.
 - [ ] **Phase 2 — CI/CD Pipeline Skeleton**: Multi-stage automated pipeline runner.
 - [ ] **Phase 3 — SAST Integration with Semgrep**: Pipeline gate failing on high-severity vulnerabilities.
 - [ ] **Phase 4 — Code Quality Gate with SonarQube**: Complementary quality & security hotspot checks.
