@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>Welcome to DevSecOps Target Application</h1>
+    <p style="color: #94a3b8;">
+        This testbed demonstrates intentional vulnerabilities for pre-deployment SAST verification (Semgrep/SonarQube) and post-deployment runtime detection (Wazuh/ELK).
+    </p>
+</div>
+
+<!-- Reflected XSS Demo Section -->
+<div class="card">
+    <h3>1. Greeting Generator (Reflected XSS Test)</h3>
+    <form method="GET" action="/">
+        <input type="text" name="name" placeholder="Enter your name..." value="{{ raw_name|default('') }}" style="width: 60%;">
+        <button type="submit">Greet Me</button>
+    </form>
+    {% if greeting_html %}
+    <div style="margin-top: 1rem; padding: 1rem; background: #0f172a; border-radius: 6px;">
+        <!-- INTENTIONAL VULNERABILITY (VULN-02): Jinja2 safe filter unescapes input -->
+        <strong>Output:</strong> {{ greeting_html | safe }}
+    </div>
+    {% endif %}
+</div>
+
+<!-- SQL Injection Demo Section -->
+<div class="card">
+    <h3>2. Database Search (SQL Injection Test)</h3>
+    <form method="GET" action="/">
+        <input type="text" name="search" placeholder="Search users by name or email..." value="{{ search_query|default('') }}" style="width: 60%;">
+        <button type="submit">Search Database</button>
+    </form>
+    {% if search_results %}
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Username</th><th>Role</th><th>Email</th></tr>
+        </thead>
+        <tbody>
+            {% for u in search_results %}
+            <tr>
+                <td>{{ u['id'] }}</td>
+                <td>{{ u['username'] }}</td>
+                <td>{{ u['role'] }}</td>
+                <td>{{ u['email'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+<!-- IDOR Demo Section -->
+<div class="card">
+    <h3>3. Confidential Notes Viewer (IDOR Test)</h3>
+    <p style="color: #94a3b8; font-size: 0.9rem;">
+        Logged-in users can request note records by numeric ID. An ownership check is missing on <code>/api/notes/&lt;id&gt;</code>.
+    </p>
+    {% if session.get('username') %}
+        <p>You are logged in as <strong>{{ session['username'] }}</strong> (User ID: {{ session['user_id'] }}).</p>
+        <form method="GET" action="/">
+            <input type="number" name="note_id" placeholder="Note ID (e.g. 1, 2, 3)" style="width: 40%;" value="{{ current_note_id|default('') }}">
+            <button type="submit">Fetch Note</button>
+        </form>
+        {% if current_note %}
+        <div style="margin-top: 1rem; padding: 1rem; background: #0f172a; border-radius: 6px; border-left: 4px solid #38bdf8;">
+            <h4>{{ current_note['title'] }} (Owner User ID: {{ current_note['user_id'] }})</h4>
+            <p>{{ current_note['content'] }}</p>
+        </div>
+        {% endif %}
+    {% else %}
+        <p style="color: #f59e0b;">Please <a href="/login" style="color: #38bdf8;">Login</a> to access the notes service.</p>
+    {% endif %}
+</div>
+{% endblock %}
