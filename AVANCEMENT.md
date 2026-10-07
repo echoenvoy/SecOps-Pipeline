@@ -14,7 +14,7 @@
 | Phase | Intitulé | Statut | Date de Réalisation |
 | :---: | :--- | :---: | :---: |
 | **Phase 0** | **Mise en place de l'environnement et du dépôt Git** | **TERMINÉ** | 30/09/2026 |
-| **Phase 1** | Application cible vulnérable et conteneurisation Docker | À venir | — |
+| **Phase 1** | **Application cible vulnérable et conteneurisation Docker** | **TERMINÉ** | 07/10/2026 |
 | **Phase 2** | Squelette du pipeline CI/CD | À venir | — |
 | **Phase 3** | Intégration SAST avec Semgrep | À venir | — |
 | **Phase 4** | Gate de qualité et sécurité avec SonarQube | À venir | — |
@@ -119,4 +119,91 @@ Création des répertoires modulaires avec conservation sous Git via `.gitkeep` 
 ---
 
 #### 4. Prochaine Étape
-- **Phase 1** : Conception et développement de l'application cible avec vulnérabilités intentionnelles documentées (SQLi, XSS, Secret codé en dur, IDOR), rédaction du Dockerfile durci et création du fichier de référence `docs/vulnerabilities.md`.
+- **Phase 1** : Conception et développement de l'application cible avec vulnérabilités intentionnelles documentées, conteneurisation et validation.
+
+---
+
+### Phase 1 — Application Cible et Conteneurisation Docker (07/10/2026)
+
+#### 1. Objectif de la Phase
+Concevoir, implémenter et conteneuriser une application web Python/Flask dotée d'un jeu de 5 vulnérabilités intentionnelles documentées (SQLi, XSS, Secret en dur, IDOR, Hash faible), émettant des logs d'authentification structurés pour la supervision Wazuh, et packagée dans un conteneur Docker durci avec utilisateur non-root.
+
+---
+
+#### 2. Actions Réalisées en Détail
+
+##### A. Création de la Branche Git
+- Création et basculement vers la branche de fonctionnalité dédiée conformément au workflow GitHub Flow :
+  ```bash
+  git checkout -b feat/phase-1-target-app
+  ```
+
+##### B. Implémentation de l'Application Cible (`app/`)
+- **Dépendances (`app/requirements.txt`)** : `Flask==3.0.3`, `Werkzeug==3.0.3`, `requests==2.32.3`, `pytest==8.2.2`.
+- **Configuration (`app/config.py`)** : Définition des clés secrètes et variables d'environnement (`SECRET_KEY`, `JWT_SECRET`, `API_KEY`).
+- **Base de données (`app/database.py`)** :
+  - Initialisation SQLite (`devsecops.db`) avec tables `users`, `notes`, et `audit_logs`.
+  - Amorçage des comptes utilisateurs de test (`admin`, `alice`, `bob`) et de notes confidentielles.
+  - Implémentation de la fonction de hachage vulnérable MD5 `hash_password_insecure()`.
+- **Application Web & API REST (`app/app.py`)** :
+  - Endpoints REST : `/health` (Healthcheck HTTP 200), `/api/login`, `/api/search`, `/api/greet`, `/api/notes/<id>`, `/api/hash`.
+  - Interface utilisateur web (`app/templates/base.html`, `login.html`, `index.html`) pour les tests visuels.
+  - Générateur d'événements de journalisation structurée `log_auth_event()` produisant des logs JSON (`[AUTH_SUCCESS]`, `[AUTH_FAILURE]`) indispensables pour les futures règles de détection d'attaques brute-force sous Wazuh (Phase 6).
+
+##### C. Jeu de Vulnérabilités Intentionnelles (`docs/vulnerabilities.md`)
+Documentation rigoureuse des 5 failles selon les standards OWASP Top 10 et CWE :
+1. **VULN-01 (SQL Injection)** : Concaténation de chaîne brute dans les requêtes de recherche et d'authentification (`SELECT ... WHERE username = '{username}'`). Exploitable via `' OR 1=1 --`.
+2. **VULN-02 (Reflected XSS)** : Utilisation de `render_template_string` dynamique et du filtre Jinja2 `| safe` sans neutralisation des balises HTML/JS.
+3. **VULN-03 (Hard-coded Secret / Token)** : Présence de jetons secrets et d'API keys en clair dans `app/config.py`.
+4. **VULN-04 (IDOR - Insecure Direct Object Reference)** : Récupération de notes privées sans vérification de session ou d'appartenance utilisateur sur `/api/notes/<id>`.
+5. **VULN-05 (Weak Cryptographic Hash)** : Recours à l'algorithme MD5 pour le hachage des mots de passe.
+
+##### D. Conteneurisation Docker Durcie (`docker/Dockerfile`)
+- Image de base minimale et épinglée : `python:3.12-slim`.
+- Sécurité en profondeur :
+  - Création d'un utilisateur système non privilégié `appuser` (UID 1000).
+  - Installation sans cache avec `--no-cache-dir`.
+  - Attribution des droits de propriété sur `/app` à `appuser`.
+  - Instruction `USER appuser` pour interdire l'exécution en tant que root.
+  - Sonde de santé intégrée (`HEALTHCHECK` via `urllib.request` sur `/health`).
+- Fichier `.dockerignore` configuré pour exclure dépôts, caches, et fichiers sensibles du contexte de build.
+
+##### E. Validation Automatisée et Tests dans le Conteneur
+- Build de l'image :
+  ```bash
+  docker build -t target-app:dev -f docker/Dockerfile .
+  ```
+- Démarrage sur le réseau sécurisé `devsecops-net` :
+  ```bash
+  docker run -d --name target-app -p 8080:8080 --network devsecops-net target-app:dev
+  ```
+- Exécution de la suite de tests automatisée `tests/test_endpoints.py` directement au sein du conteneur :
+  - Test 1 (Healthcheck) : `status: UP` (HTTP 200) $\rightarrow$ **PASS**
+  - Test 2 (SQLi Auth Bypass) : Bypass réussi avec `' --` $\rightarrow$ **PASS**
+  - Test 3 (SQLi Search) : Extraction de 3 enregistrements via injection SQL $\rightarrow$ **PASS**
+  - Test 4 (Reflected XSS) : Injection de payload script reflétée non échappée $\rightarrow$ **PASS**
+  - Test 5 (IDOR) : Note confidentielle de Bob récupérée sans droits $\rightarrow$ **PASS**
+  - Test 6 (Weak Crypto) : Hachage MD5 (32 caractères hex) vérifié $\rightarrow$ **PASS**
+  - Test 7 (Télémétrie Wazuh) : Code 401 et émission du log `[AUTH_FAILURE]` $\rightarrow$ **PASS**
+  - Vérification utilisateur : `docker exec target-app whoami` renvoie `appuser` $\rightarrow$ **PASS**
+
+---
+
+#### 3. Points de Contrôle et Validation Technique (Checkpoints)
+
+| Critère de validation | Commande de test | Résultat obtenu | Statut |
+| :--- | :--- | :--- | :---: |
+| **Démarrage conteneur** | `docker ps --filter name=target-app` | Conteneur actif (`Up (healthy)`) | **VALIDÉ** |
+| **Privilèges non-root** | `docker exec target-app whoami` | Utilisateur `appuser` (UID 1000) | **VALIDÉ** |
+| **Sonde Healthcheck** | `GET /health` | HTTP 200 `{"status": "UP"}` | **VALIDÉ** |
+| **Déclenchement SQLi** | `POST /api/login` & `GET /api/search` | Bypass d'auth et extraction de données | **VALIDÉ** |
+| **Déclenchement XSS** | `GET /api/greet?name=<script>...` | Payload reflété sans échappement | **VALIDÉ** |
+| **Déclenchement IDOR** | `GET /api/notes/2` | Note d'un tiers accessible sans contrôle | **VALIDÉ** |
+| **Télémétrie brute-force** | `docker logs target-app` | Événements `[AUTH_FAILURE]` en JSON | **VALIDÉ** |
+| **Documentation failles** | `docs/vulnerabilities.md` | Matrice complète avec PoCs | **VALIDÉ** |
+
+---
+
+#### 4. Prochaine Étape
+- **Phase 2** : Mise en place du squelette de pipeline CI/CD multi-étapes (`sast`, `quality-gate`, `build`, `deploy`).
+
