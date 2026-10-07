@@ -101,3 +101,24 @@ To verify the setup:
 2. Dedicated network available: `docker network ls` (includes `devsecops-net`)
 3. Kubernetes cluster available: `kubectl get nodes`
 4. Repository committed: `git log`
+
+## 6. Phase 1 Validation Checkpoint
+Automated Python Suite (Runs all 7 checks in one command)
+```powershell
+docker cp tests/test_endpoints.py target-app:/app/test_endpoints.py
+docker exec target-app python /app/test_endpoints.py
+```
+> **Expected Output:**
+> ```text
+> Running Phase 1 Verification Test Suite...
+> [PASS] Healthcheck
+> [PASS] SQLi Auth Bypass
+> [PASS] SQLi Search Extracted 3 records
+> [PASS] Reflected XSS
+> [PASS] IDOR
+> [PASS] Weak Crypto (MD5)
+> [PASS] Auth Failure Telemetry (401 emitted)
+> 
+> ALL PHASE 1 TESTS PASSED SUCCESSFULLY!
+> ```
+
