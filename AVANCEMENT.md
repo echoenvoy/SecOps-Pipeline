@@ -15,7 +15,7 @@
 | :---: | :--- | :---: | :---: |
 | **Phase 0** | **Mise en place de l'environnement et du dépôt Git** | **TERMINÉ** | 30/09/2026 |
 | **Phase 1** | **Application cible vulnérable et conteneurisation Docker** | **TERMINÉ** | 07/10/2026 |
-| **Phase 2** | Squelette du pipeline CI/CD | À venir | — |
+| **Phase 2** | **Squelette du pipeline CI/CD** | **TERMINÉ** | 04/11/2026 |
 | **Phase 3** | Intégration SAST avec Semgrep | À venir | — |
 | **Phase 4** | Gate de qualité et sécurité avec SonarQube | À venir | — |
 | **Phase 5** | Build conteneurisé et déploiement Kubernetes | À venir | — |
@@ -205,5 +205,60 @@ Documentation rigoureuse des 5 failles selon les standards OWASP Top 10 et CWE :
 ---
 
 #### 4. Prochaine Étape
-- **Phase 2** : Mise en place du squelette de pipeline CI/CD multi-étapes (`sast`, `quality-gate`, `build`, `deploy`).
+- **Phase 2** : Mise en place du squelette de pipeline CI/CD multi-étapes.
+
+---
+
+### Phase 2 — Squelette du Pipeline CI/CD (04/11/2026)
+
+#### 1. Objectif de la Phase
+Construire et valider l'ossature du pipeline CI/CD automatisé à 4 étapes ordonnées (`sast` -> `quality-gate` -> `build` -> `deploy`) afin d'accueillir les outils d'analyse statique de sécurité, le quality gate, le build de conteneur et le déploiement sur Kubernetes.
+
+---
+
+#### 2. Actions Réalisées en Détail
+
+##### A. Création de la Branche Git
+- Création et basculement vers la branche de fonctionnalité dédiée conformément au workflow GitHub Flow :
+  ```bash
+  git checkout -b feat/phase-2-ci-cd-pipeline-skeleton
+  ```
+
+##### B. Définition du Pipeline GitHub Actions (`.github/workflows/devsecops-pipeline.yml`)
+- Définition d'un workflow automatisé déclenché sur tout push ou pull request.
+- Implémentation des 4 étapes ordonnées avec dépendances strictes (`needs: [...]`) :
+  1. **Stage 1 (SAST)** : Exécution de l'analyse statique du code (placeholder Semgrep).
+  2. **Stage 2 (Quality Gate)** : Vérification de la qualité du code et des règles de sécurité (placeholder SonarQube Scanner CLI, dépend de `sast`).
+  3. **Stage 3 (Build)** : Construction de l'image de conteneur Docker avec tagging par commit SHA (dépend de `quality-gate`).
+  4. **Stage 4 (Deploy)** : Déploiement des manifestes Kubernetes sur le cluster (dépend de `build`).
+
+##### C. Squelette Générique Déclaratif (`ci/pipeline-skeleton.yml`)
+- Création du manifeste de pipeline déclaratif conforme à l'Annexe A du document de spécification (support multi-runner / GitLab CI / simulation locale).
+
+##### D. Simulateur et Testeur Local de Pipeline (`ci/simulate-pipeline.ps1`)
+- Développement d'un script PowerShell permettant d'émuler l'exécution du pipeline de bout en bout en local.
+- Validation de l'ordonnancement strict des étapes et du mécanisme de blocage (gating) :
+  - Exécution nominale : Les 4 étapes s'exécutent avec succès dans l'ordre (statut **GREEN**).
+  - Test de blocage : Une anomalie à l'étape SAST (`-FailOnSast`) interrompt immédiatement le pipeline et empêche les étapes suivantes de s'exécuter (principe du Shift-Left).
+
+##### E. Guide de Gestion des Secrets du Pipeline (`docs/ci-secrets-setup.md`)
+- Rédaction d'un guide détaillant les secrets requis pour les phases suivantes (`SONAR_TOKEN`, `SONAR_HOST_URL`, `DOCKER_REGISTRY_USER`, `DOCKER_REGISTRY_PASSWORD`, `KUBECONFIG`).
+- Application du principe de sécurité : aucun secret en clair dans le dépôt Git.
+
+---
+
+#### 3. Points de Contrôle et Validation Technique (Checkpoints)
+
+| Critère de validation | Commande de test | Résultat obtenu | Statut |
+| :--- | :--- | :--- | :---: |
+| **Fichier Workflow GitHub** | `.github/workflows/devsecops-pipeline.yml` | Fichier syntaxiquement valide avec 4 jobs ordonnés | **VALIDÉ** |
+| **Squelette multi-runner** | `ci/pipeline-skeleton.yml` | Défini selon la spécification | **VALIDÉ** |
+| **Exécution nominale** | `powershell ci/simulate-pipeline.ps1` | Les 4 étapes s'exécutent dans l'ordre (statut GREEN) | **VALIDÉ** |
+| **Gating de sécurité** | `powershell ci/simulate-pipeline.ps1 -FailOnSast` | Arrêt immédiat dès l'étape 1 en cas d'échec SAST | **VALIDÉ** |
+| **Isolation des secrets** | `docs/ci-secrets-setup.md` | Contrat de variables défini sans secrets commis | **VALIDÉ** |
+
+---
+
+#### 4. Prochaine Étape
+- **Phase 3 — Intégration SAST avec Semgrep** : Remplacement du placeholder SAST par l'analyse réelle du code source (`semgrep --config p/owasp-top-ten`), blocage du pipeline sur les vulnérabilités identifiées en Phase 1 (SQLi, XSS, Secret en dur) et export des rapports JSON/SARIF.
 
