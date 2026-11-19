@@ -5,7 +5,7 @@
 **Auteur** : Amhidi Hamza  
 **Projet** : Plateforme DevSecOps de Sécurité CI/CD, Orchestration et Supervision SOC (SAST, K8s, Wazuh, ELK, TheHive)  
 **Dépôt GitHub** : [echoenvoy/SecOps-Pipeline](https://github.com/echoenvoy/SecOps-Pipeline)  
-**Dernière mise à jour** : 30 Septembre 2026  
+**Dernière mise à jour** : 19 Novembre 2026  
 
 ---
 
@@ -16,7 +16,7 @@
 | **Phase 0** | **Mise en place de l'environnement et du dépôt Git** | **TERMINÉ** | 30/09/2026 |
 | **Phase 1** | **Application cible vulnérable et conteneurisation Docker** | **TERMINÉ** | 07/10/2026 |
 | **Phase 2** | **Squelette du pipeline CI/CD** | **TERMINÉ** | 04/11/2026 |
-| **Phase 3** | Intégration SAST avec Semgrep | À venir | — |
+| **Phase 3** | **Intégration SAST avec Semgrep** | **TERMINÉ** | 19/11/2026 |
 | **Phase 4** | Gate de qualité et sécurité avec SonarQube | À venir | — |
 | **Phase 5** | Build conteneurisé et déploiement Kubernetes | À venir | — |
 | **Phase 6** | Surveillance Runtime et HIDS avec Wazuh | À venir | — |
@@ -262,3 +262,77 @@ Construire et valider l'ossature du pipeline CI/CD automatisé à 4 étapes ordo
 #### 4. Prochaine Étape
 - **Phase 3 — Intégration SAST avec Semgrep** : Remplacement du placeholder SAST par l'analyse réelle du code source (`semgrep --config p/owasp-top-ten`), blocage du pipeline sur les vulnérabilités identifiées en Phase 1 (SQLi, XSS, Secret en dur) et export des rapports JSON/SARIF.
 
+
+
+---
+
+### Phase 3 — Intégration SAST avec Semgrep (19/11/2026)
+
+#### 1. Objectif de la Phase
+Remplacer le placeholder SAST du pipeline CI/CD par l'analyse statique réelle du code source à l'aide de l'outil **Semgrep**, détecter l'intégralité des vulnérabilités documentées lors de la Phase 1 (SQLi, XSS, Secret en dur, IDOR, Hash MD5 faible), générer des rapports structurés (JSON et SARIF), faire échouer le pipeline (exit code 1) en cas de détection d'anomalies de sévérité haute, et démontrer la complétude du premier demi-scénario (avant/après : blocage du code vulnérable et passage du code remédié).
+
+---
+
+#### 2. Actions Réalisées en Détail
+
+##### A. Création de la Branche Git
+- Création et basculement vers la branche dédiée conformément au workflow GitHub Flow :
+  ```bash
+  git checkout -b feat/phase-3-sast-semgrep
+  ```
+
+##### B. Installation et Configuration de Semgrep CLI
+- Installation native du moteur d'analyse statique sous Python 3.10 :
+  ```bash
+  pip install semgrep
+  ```
+- Validation de la version installée : `semgrep --version` -> `1.186.0`.
+
+##### C. Élaboration des Règles Semgrep Personnalisées (`security/semgrep/rules.yml`)
+Pour compléter les règles de registre public (`p/owasp-top-ten`), rédaction d'un ensemble de règles personnalisées sur mesure couvrant 100% de l'inventaire des failles de `app/` :
+1. **`custom-sqli-formatted-query`** (`CWE-89` / `A03:2021 – Injection`) : Détecte les f-strings, `%` et `.format()` non paramétrés passés dans `cursor.execute()`. (4 occurrences détectées dans `app/app.py`).
+2. **`custom-xss-render-template-string`** (`CWE-79` / `A03:2021 – Injection`) : Détecte les chaînes dynamiques utilisateur passées directement à `render_template_string()` sans auto-échappement. (1 occurrence détectée dans `app/app.py`).
+3. **`custom-hardcoded-secret`** (`CWE-798` / `A07:2021 – Auth Failures`) : Détecte les clés secrètes et jetons codés en dur (`SECRET_KEY`, `JWT_SECRET`, `API_KEY`) dans la configuration. (3 occurrences détectées dans `app/config.py`).
+4. **`custom-idor-unvalidated-access`** (`CWE-639` / `A01:2021 – Broken Access Control`) : Détecte la récupération directe de notes privées sans vérification de la session utilisateur. (1 occurrence détectée dans `app/app.py`).
+5. **`custom-weak-hash-md5`** (`CWE-327` / `CWE-328` / `A02:2021 – Cryptographic Failures`) : Détecte les appels à `hashlib.md5()` ou `hash_password_insecure()`. (7 occurrences détectées dans `app/database.py` et `app/app.py`).
+- **Total des détections** : 16 findings bloquants (15 ERROR, 1 WARNING) avec 100% de couverture de l'inventaire `docs/vulnerabilities.md`.
+
+##### D. Développement du Script d'Exécution et Rapportage SAST (`ci/run-sast.ps1`)
+- Exécution automatisée de Semgrep avec les configurations combinées (`p/owasp-top-ten` + `security/semgrep/rules.yml`).
+- Exportation double format :
+  - `reports/semgrep.json` : Format JSON complet pour l'analyse programmatique et le parsing.
+  - `reports/semgrep.sarif` : Format SARIF conforme pour l'intégration aux outils de sécurité GitHub Code Scanning.
+- Génération d'un résumé exécutif coloré en console détaillant chaque vulnérabilité identifiée, son emplacement exact (fichier et ligne) et sa sévérité.
+- Application d'une politique de sécurité stricte : arrêt avec code d'erreur `1` dès lors qu'une vulnérabilité de niveau ERROR est détectée.
+
+##### E. Intégration dans le Pipeline CI/CD
+1. **Pipeline GitHub Actions (`.github/workflows/devsecops-pipeline.yml`)** :
+   - Mise à jour du job `sast` pour installer Semgrep via l'étape Python, lancer l'analyse avec `--error` et téléverser les rapports sous forme d'artefacts GitHub Actions (`actions/upload-artifact@v4`).
+2. **Squelette Déclaratif (`ci/pipeline-skeleton.yml`)** :
+   - Mise à jour de l'étape `sast` avec l'image `returntocorp/semgrep:latest` et la commande d'analyse avec gating.
+3. **Simulateur de Pipeline Local (`ci/simulate-pipeline.ps1`)** :
+   - Ajout du commutateur `-RealSast` permettant d'exécuter la véritable analyse Semgrep en local et de vérifier le comportement de blocage immédiat du pipeline.
+
+##### F. Démonstration Before / After du Quality Gate (`ci/verify-sast-gates.ps1`)
+- Création d'une version de référence saine (`app_remediated/`) appliquant les contre-mesures recommandées : requêtes paramétrées avec placeholders `?`, injection de variables d'environnement (`os.environ.get()`), auto-échappement Jinja2, validation de propriété de session et hachage sécurisé SHA-256 salé.
+- Mise en place d'un harnais d'orchestration (`ci/verify-sast-gates.ps1`) validant les deux scénarios :
+  - **Scénario 1 (Avant / Code Vulnérable `app/`)** : Exit code `1` -> Gate de sécurité activé, pipeline interrompu au Stage 1 (**GATE ENFORCED / BLOCKED**).
+  - **Scénario 2 (Après / Code Remédié `app_remediated/`)** : Exit code `0` -> 0 anomalie, pipeline poursuivant son cours sur les 4 étapes avec succès (**PIPELINE PASSED / GREEN**).
+
+---
+
+#### 3. Points de Contrôle et Validation Technique (Checkpoints)
+
+| Critère de validation | Commande de test | Résultat obtenu | Statut |
+| :--- | :--- | :--- | :---: |
+| **Disponibilité Semgrep** | `semgrep --version` | Version `1.186.0` opérationnelle | **VALIDÉ** |
+| **Couverture des failles Phase 1** | `semgrep scan --config security/semgrep/rules.yml app/` | 16 détections (100% des vulnérabilités cibles identifiées) | **VALIDÉ** |
+| **Génération des rapports** | `Test-Path reports/semgrep.json`, `reports/semgrep.sarif` | Rapports JSON (11.5 KB) et SARIF (16.1 KB) générés | **VALIDÉ** |
+| **Blocage du pipeline (Shift-Left)** | `powershell ci/simulate-pipeline.ps1 -RealSast -TargetDir app` | Arrêt immédiat à l'Étape 1 (Exit code 1) | **VALIDÉ** |
+| **Passage sur code remédié** | `powershell ci/simulate-pipeline.ps1 -RealSast -TargetDir app_remediated` | Les 4 étapes s'exécutent avec succès (Statut GREEN, Exit code 0) | **VALIDÉ** |
+| **Harnais Avant / Après** | `powershell ci/verify-sast-gates.ps1` | Validation automatisée des scénarios 1 & 2 validée avec succès | **VALIDÉ** |
+
+---
+
+#### 4. Prochaine Étape
+- **Phase 4 — Quality Gate et Sécurité avec SonarQube** : Déploiement local de SonarQube Community Edition via Docker Compose, configuration de `sonar-project.properties`, définition des conditions de Quality Gate (couverture, dette technique, hotspots de sécurité) et intégration au Stage 2 du pipeline.

@@ -58,10 +58,15 @@ Modern software development demands rapid deployment through CI/CD pipelines wit
 
 ```text
 devsecops-platform/
-├── app/                  # Target application source code
+├── app/                  # Target application source code (vulnerable baseline)
+├── app_remediated/       # Remediated application source code (SAST clean reference)
 ├── docker/               # Dockerfiles and container configurations
 ├── k8s/                  # Kubernetes manifests (Deployment, Service, ConfigMap/Secret)
-├── ci/                   # CI/CD pipeline definition files
+├── ci/                   # CI/CD pipeline definition files and runners
+│   ├── run-sast.ps1      # Semgrep SAST execution & reporting runner
+│   ├── simulate-pipeline.ps1 # Multi-stage pipeline execution simulator
+│   └── verify-sast-gates.ps1 # Before / After automated demonstration harness
+├── reports/              # SAST reports (JSON / SARIF)
 ├── security/
 │   ├── semgrep/          # Custom Semgrep rules and scan policies
 │   └── sonar/            # sonar-project.properties and quality gate configs
@@ -81,7 +86,7 @@ devsecops-platform/
 - [x] **Phase 0 — Environment and Repository Setup**: Scaffolding, container networks, toolchain verification.
 - [x] **Phase 1 — Target Application and Dockerization**: Web application with documented vulnerabilities and secure Dockerfile.
 - [x] **Phase 2 — CI/CD Pipeline Skeleton**: Multi-stage automated pipeline runner.
-- [ ] **Phase 3 — SAST Integration with Semgrep**: Pipeline gate failing on high-severity vulnerabilities.
+- [x] **Phase 3 — SAST Integration with Semgrep**: Pipeline gate failing on high-severity vulnerabilities.
 - [ ] **Phase 4 — Code Quality Gate with SonarQube**: Complementary quality & security hotspot checks.
 - [ ] **Phase 5 — Containerized Build and Kubernetes Deployment**: Automated image build and Kubernetes deployment.
 - [ ] **Phase 6 — Wazuh Runtime Monitoring**: Wazuh agent/manager deployment, FIM, and brute-force detection.
@@ -122,8 +127,6 @@ docker exec target-app python /app/test_endpoints.py
 > ALL PHASE 1 TESTS PASSED SUCCESSFULLY!
 > ```
 
-
-
 ## 7. Phase 2 Validation Checkpoint
 Automated multi-stage pipeline simulation:
 ```powershell
@@ -136,4 +139,20 @@ powershell -ExecutionPolicy Bypass -File ci/simulate-pipeline.ps1
 > >>> STAGE 3: Container Build & Packaging - [SUCCESS]
 > >>> STAGE 4: Orchestration & Staging Deployment - [SUCCESS]
 > PIPELINE RUN STATUS: GREEN (ALL 4 STAGES COMPLETED IN ORDER)
+> ```
+
+## 8. Phase 3 Validation Checkpoint
+Automated Before / After SAST Quality Gate Demonstration Harness:
+```powershell
+powershell -ExecutionPolicy Bypass -File ci/verify-sast-gates.ps1
+```
+> **Expected Output:**
+> ```text
+> ================================================================================
+> PHASE 3 SAST VERIFICATION SUMMARY
+> ================================================================================
+> Scenario 1 (Vulnerable Code) : Exit Code 1 -> GATE ENFORCED (BLOCKED) [PASS]
+> Scenario 2 (Remediated Code) : Exit Code 0 -> PIPELINE PASSED (GREEN)   [PASS]
+> ================================================================================
+> [SUCCESS] Phase 3 SAST integration and Shift-Left gating successfully verified!
 > ```

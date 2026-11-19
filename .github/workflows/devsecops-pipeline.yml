@@ -24,16 +24,34 @@ jobs:
       - name: Checkout repository source code
         uses: actions/checkout@v4
 
-      - name: Execute SAST scan (Placeholder for Phase 3)
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep CLI
+        run: pip install semgrep
+
+      - name: Execute Semgrep SAST Scan
         run: |
           echo "========================================================"
           echo ">>> [STAGE 1] SAST - Static Application Security Testing"
           echo ">>> Tool Target: Semgrep (OWASP Top 10 + Custom Rules)"
           echo "========================================================"
-          echo "Executing: semgrep placeholder"
-          # In Phase 3, replaced by:
-          # semgrep --config p/owasp-top-ten --config security/semgrep/ --json -o semgrep.json app/
-          echo "[INFO] SAST scan placeholder executed successfully."
+          mkdir -p reports
+          semgrep scan \
+            --config "p/owasp-top-ten" \
+            --config "security/semgrep/rules.yml" \
+            --json -o reports/semgrep.json \
+            --error \
+            app/
+
+      - name: Upload SAST Scan Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sast-reports
+          path: reports/semgrep.json
 
   # -------------------------------------------------------------
   # Stage 2: Quality & Security Gate

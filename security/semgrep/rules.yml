@@ -1,0 +1,133 @@
+# ==============================================================================
+# Custom Semgrep Rules for SecOps-Pipeline Target Application
+# Domain: Cybersecurity — DevSecOps CI/CD Security & Monitoring Platform
+# Author: Amhidi Hamza (EHTP)
+# Ref: Specification Document Section 5.3.1 & docs/vulnerabilities.md
+# ==============================================================================
+
+rules:
+  # ----------------------------------------------------------------------------
+  # VULN-01: SQL Injection (SQLi)
+  # CWE-89 | OWASP A03:2021 – Injection
+  # ----------------------------------------------------------------------------
+  - id: custom-sqli-formatted-query
+    languages: [python]
+    severity: ERROR
+    message: "SQL Injection detected: dynamic string formatting in database query. Use parameterized query with placeholder '?' instead."
+    metadata:
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp: "A03:2021 – Injection"
+      vulnerability_id: "VULN-01"
+      confidence: HIGH
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $SQL = f"...{$EXPR}..."
+              ...
+              $CURSOR.execute($SQL, ...)
+          - pattern: |
+              $CURSOR.execute(f"...{$EXPR}...", ...)
+          - pattern: |
+              $SQL = "..." % ($EXPR, ...)
+              ...
+              $CURSOR.execute($SQL, ...)
+          - pattern: |
+              $SQL = "...".format(..., $EXPR, ...)
+              ...
+              $CURSOR.execute($SQL, ...)
+
+  # ----------------------------------------------------------------------------
+  # VULN-02: Reflected Cross-Site Scripting (XSS)
+  # CWE-79 | OWASP A03:2021 – Injection
+  # ----------------------------------------------------------------------------
+  - id: custom-xss-render-template-string
+    languages: [python]
+    severity: ERROR
+    message: "Reflected Cross-Site Scripting (XSS) detected: untrusted input passed to render_template_string(). Use static templates with render_template() and autoescaping instead."
+    metadata:
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp: "A03:2021 – Injection"
+      vulnerability_id: "VULN-02"
+      confidence: HIGH
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $TPL = f"...{$VAR}..."
+              ...
+              render_template_string($TPL, ...)
+          - pattern: |
+              render_template_string(f"...{$VAR}...", ...)
+          - pattern: |
+              $TPL = "...".format(..., $VAR, ...)
+              ...
+              render_template_string($TPL, ...)
+          - pattern: |
+              render_template_string("..." + $VAR, ...)
+
+  # ----------------------------------------------------------------------------
+  # VULN-03: Hardcoded Secrets and Credentials
+  # CWE-798 | OWASP A07:2021 – Identification and Authentication Failures
+  # ----------------------------------------------------------------------------
+  - id: custom-hardcoded-secret
+    languages: [python]
+    severity: ERROR
+    message: "Hard-coded secret or API key detected in source code. Load credentials securely via environment variables (e.g., os.environ.get()) backed by Kubernetes Secrets."
+    metadata:
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07:2021 – Identification and Authentication Failures"
+      vulnerability_id: "VULN-03"
+      confidence: HIGH
+    pattern-either:
+      - pattern: SECRET_KEY = "..."
+      - pattern: JWT_SECRET = "..."
+      - pattern: API_KEY = "..."
+      - pattern: HARDCODED_JWT_SECRET = "..."
+      - pattern: PASSWORD = "..."
+
+  # ----------------------------------------------------------------------------
+  # VULN-04: Insecure Direct Object Reference (IDOR)
+  # CWE-639 | OWASP A01:2021 – Broken Access Control
+  # ----------------------------------------------------------------------------
+  - id: custom-idor-unvalidated-access
+    languages: [python]
+    severity: WARNING
+    message: "Potential Insecure Direct Object Reference (IDOR): private note fetched by identifier without verifying user ownership or session credentials."
+    metadata:
+      cwe: "CWE-639: Authorization Bypass Through User-Controlled Key"
+      owasp: "A01:2021 – Broken Access Control"
+      vulnerability_id: "VULN-04"
+      confidence: MEDIUM
+    patterns:
+      - pattern: |
+          def api_get_note($ID: int):
+              ...
+      - pattern-not: |
+          def api_get_note($ID: int):
+              ...
+              session[...]
+              ...
+      - pattern-not: |
+          def api_get_note($ID: int):
+              ...
+              session.get(...)
+              ...
+
+  # ----------------------------------------------------------------------------
+  # VULN-05: Weak Cryptographic Hash (MD5)
+  # CWE-327 / CWE-328 | OWASP A02:2021 – Cryptographic Failures
+  # ----------------------------------------------------------------------------
+  - id: custom-weak-hash-md5
+    languages: [python]
+    severity: ERROR
+    message: "Weak cryptographic hash algorithm (MD5) detected. MD5 is broken and insecure for sensitive data or password hashing. Use SHA-256, Argon2, bcrypt, or scrypt."
+    metadata:
+      cwe: "CWE-328: Use of Weak Hash"
+      owasp: "A02:2021 – Cryptographic Failures"
+      vulnerability_id: "VULN-05"
+      confidence: HIGH
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.new("md5", ...)
+          - pattern: hashlib.new("MD5", ...)
+          - pattern: hash_password_insecure(...)
