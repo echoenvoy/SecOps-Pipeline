@@ -1,0 +1,108 @@
+name: DevSecOps CI/CD Security & Monitoring Pipeline
+
+on:
+  push:
+    branches: [ main, "feat/**" ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  IMAGE_NAME: target-app
+  APP_DIR: app
+  DOCKERFILE_PATH: docker/Dockerfile
+  K8S_DIR: k8s
+
+jobs:
+  # -------------------------------------------------------------
+  # Stage 1: SAST (Static Application Security Testing)
+  # Pre-deployment static code analysis with Semgrep
+  # -------------------------------------------------------------
+  sast:
+    name: "Stage 1: SAST (Semgrep)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository source code
+        uses: actions/checkout@v4
+
+      - name: Execute SAST scan (Placeholder for Phase 3)
+        run: |
+          echo "========================================================"
+          echo ">>> [STAGE 1] SAST - Static Application Security Testing"
+          echo ">>> Tool Target: Semgrep (OWASP Top 10 + Custom Rules)"
+          echo "========================================================"
+          echo "Executing: semgrep placeholder"
+          # In Phase 3, replaced by:
+          # semgrep --config p/owasp-top-ten --config security/semgrep/ --json -o semgrep.json app/
+          echo "[INFO] SAST scan placeholder executed successfully."
+
+  # -------------------------------------------------------------
+  # Stage 2: Quality & Security Gate
+  # Code quality, bugs, code smells, and security hotspots with SonarQube
+  # -------------------------------------------------------------
+  quality-gate:
+    name: "Stage 2: Quality Gate (SonarQube)"
+    needs: [sast]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository source code
+        uses: actions/checkout@v4
+
+      - name: Execute SonarQube Quality Gate (Placeholder for Phase 4)
+        run: |
+          echo "========================================================"
+          echo ">>> [STAGE 2] Code Quality & Security Gate"
+          echo ">>> Tool Target: SonarQube Scanner CLI"
+          echo "========================================================"
+          echo "Executing: sonarqube placeholder"
+          # In Phase 4, replaced by:
+          # sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.qualitygate.wait=true
+          echo "[INFO] Quality gate placeholder passed."
+
+  # -------------------------------------------------------------
+  # Stage 3: Container Build
+  # Hardened Docker image build with commit SHA tagging
+  # -------------------------------------------------------------
+  build:
+    name: "Stage 3: Container Build (Docker)"
+    needs: [quality-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository source code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Container (Placeholder for Phase 5)
+        run: |
+          echo "========================================================"
+          echo ">>> [STAGE 3] Containerization & Packaging"
+          echo ">>> Tool Target: Docker Build & Push"
+          echo "========================================================"
+          echo "Executing: docker build placeholder"
+          echo "Target image: ${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          # In Phase 5, replaced by:
+          # docker build -t localhost:5000/target-app:${{ github.sha }} -f docker/Dockerfile .
+          # docker push localhost:5000/target-app:${{ github.sha }}
+          echo "[INFO] Container build placeholder completed."
+
+  # -------------------------------------------------------------
+  # Stage 4: Orchestration & Deployment
+  # Manifest substitution and deployment on Kubernetes cluster
+  # -------------------------------------------------------------
+  deploy:
+    name: "Stage 4: Orchestration (Kubernetes)"
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository source code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Kubernetes Cluster (Placeholder for Phase 5)
+        run: |
+          echo "========================================================"
+          echo ">>> [STAGE 4] Deployment & Orchestration"
+          echo ">>> Tool Target: Kubernetes (kind / minikube)"
+          echo "========================================================"
+          echo "Executing: kubectl apply placeholder"
+          # In Phase 5, replaced by:
+          # kubectl apply -f k8s/
+          # kubectl rollout status deployment/target-app
+          echo "[INFO] Deployment placeholder executed successfully."

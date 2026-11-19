@@ -1,0 +1,64 @@
+# ==============================================================================
+# Indicative CI/CD Pipeline Skeleton
+# Ref: Specification Document (Appendix A) & Implementation Plan (Phase 2)
+# ==============================================================================
+
+stages:
+  - sast
+  - quality-gate
+  - build
+  - deploy
+
+variables:
+  IMAGE_NAME: "target-app"
+  DOCKERFILE: "docker/Dockerfile"
+
+# -------------------------------------------------------------
+# Stage 1: SAST (Semgrep)
+# -------------------------------------------------------------
+sast:
+  stage: sast
+  script:
+    - echo "=== [STAGE 1] SAST Placeholder ==="
+    - echo "semgrep placeholder"
+    # Phase 3 integration:
+    # semgrep --config p/owasp-top-ten --config security/semgrep/ --error --json -o semgrep.json app/
+  artifacts:
+    paths:
+      - semgrep.json
+    when: always
+
+# -------------------------------------------------------------
+# Stage 2: Quality Gate (SonarQube)
+# -------------------------------------------------------------
+quality-gate:
+  stage: quality-gate
+  script:
+    - echo "=== [STAGE 2] Quality Gate Placeholder ==="
+    - echo "sonarqube placeholder"
+    # Phase 4 integration:
+    # sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.qualitygate.wait=true
+
+# -------------------------------------------------------------
+# Stage 3: Docker Build
+# -------------------------------------------------------------
+build:
+  stage: build
+  script:
+    - echo "=== [STAGE 3] Docker Build Placeholder ==="
+    - echo "docker build placeholder"
+    # Phase 5 integration:
+    # docker build -t localhost:5000/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA -f $DOCKERFILE .
+    # docker push localhost:5000/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+
+# -------------------------------------------------------------
+# Stage 4: Kubernetes Deployment
+# -------------------------------------------------------------
+deploy:
+  stage: deploy
+  script:
+    - echo "=== [STAGE 4] Deploy Placeholder ==="
+    - echo "kubectl apply placeholder"
+    # Phase 5 integration:
+    # sed -i "s#target-app:latest#target-app:$CI_COMMIT_SHORT_SHA#" k8s/deployment.yaml
+    # kubectl apply -f k8s/
