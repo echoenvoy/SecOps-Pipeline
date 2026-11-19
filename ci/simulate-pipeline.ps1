@@ -6,10 +6,13 @@
     1. Stage sequencing (sast -> quality-gate -> build -> deploy).
     2. Dependency gating (failure in earlier stage halts subsequent stages).
     3. Proper execution order and environment contract.
+    4. Real SAST Semgrep scanning and reporting (Phase 3).
 #>
 
 [CmdletBinding()]
 param (
+    [switch]$RealSast = $false,
+    [string]$TargetDir = "app",
     [switch]$FailOnSast = $false,
     [switch]$FailOnQualityGate = $false,
     [switch]$FailOnBuild = $false
@@ -39,15 +42,31 @@ function Run-Pipeline {
     # Stage 1: SAST
     # -------------------------------------------------------------
     Write-StageHeader "1" "Static Application Security Testing (SAST)" "Semgrep"
-    Write-Host "Executing stage script: echo 'semgrep placeholder'"
-    Start-Sleep -Milliseconds 400
-    
-    if ($FailOnSast) {
-        Write-Host "[ERROR] SAST scan found high-severity vulnerabilities. Quality Gate failed!" -ForegroundColor Red
-        Write-Host "Pipeline execution HALTED at Stage 1 (Shift-Left Gate Triggered)." -ForegroundColor Red
-        return $false
+
+    if ($RealSast) {
+        Write-Host "Invoking live SAST scan via ci/run-sast.ps1 against target '$TargetDir'..." -ForegroundColor Yellow
+        $sastScript = Join-Path $PSScriptRoot "run-sast.ps1"
+        
+        & powershell -ExecutionPolicy Bypass -File "$sastScript" -TargetDir "$TargetDir" -ConfigFiles @("security/semgrep/rules.yml")
+        $sastExitCode = $LASTEXITCODE
+        if ($sastExitCode -ne 0) {
+            Write-Host ""
+            Write-Host "[ERROR] Real SAST scan failed (Semgrep gate exit code $sastExitCode)." -ForegroundColor Red
+            Write-Host "Pipeline execution HALTED at Stage 1 (Shift-Left Gate Triggered)." -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "[SUCCESS] Real SAST scan passed with zero blocking findings." -ForegroundColor Green
+    } else {
+        Write-Host "Executing stage script: semgrep scan --config security/semgrep/rules.yml app/"
+        Start-Sleep -Milliseconds 400
+        
+        if ($FailOnSast) {
+            Write-Host "[ERROR] SAST scan found high-severity vulnerabilities. Quality Gate failed!" -ForegroundColor Red
+            Write-Host "Pipeline execution HALTED at Stage 1 (Shift-Left Gate Triggered)." -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "[SUCCESS] SAST scan completed successfully." -ForegroundColor Green
     }
-    Write-Host "[SUCCESS] SAST scan placeholder completed successfully." -ForegroundColor Green
 
     # -------------------------------------------------------------
     # Stage 2: Code Quality & Security Gate
@@ -59,7 +78,7 @@ function Run-Pipeline {
     if ($FailOnQualityGate) {
         Write-Host "[ERROR] SonarQube Quality Gate conditions not met (Coverage/Hotspots). Build blocked!" -ForegroundColor Red
         Write-Host "Pipeline execution HALTED at Stage 2." -ForegroundColor Red
-        return $false
+        exit 1
     }
     Write-Host "[SUCCESS] SonarQube quality gate placeholder passed." -ForegroundColor Green
 
@@ -74,7 +93,7 @@ function Run-Pipeline {
     if ($FailOnBuild) {
         Write-Host "[ERROR] Docker build failed. Packaging aborted!" -ForegroundColor Red
         Write-Host "Pipeline execution HALTED at Stage 3." -ForegroundColor Red
-        return $false
+        exit 1
     }
     Write-Host "[SUCCESS] Docker build placeholder completed successfully." -ForegroundColor Green
 
@@ -92,12 +111,7 @@ function Run-Pipeline {
     Write-Host "================================================================================" -ForegroundColor Green
     Write-Host "PIPELINE RUN STATUS: GREEN (ALL 4 STAGES COMPLETED IN ORDER)" -ForegroundColor Green
     Write-Host "================================================================================" -ForegroundColor Green
-    return $true
-}
-
-$success = Run-Pipeline
-if (-not $success) {
-    exit 1
-} else {
     exit 0
 }
+
+Run-Pipeline

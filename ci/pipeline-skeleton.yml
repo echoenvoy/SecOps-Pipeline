@@ -1,6 +1,6 @@
 # ==============================================================================
 # Indicative CI/CD Pipeline Skeleton
-# Ref: Specification Document (Appendix A) & Implementation Plan (Phase 2)
+# Ref: Specification Document (Appendix A) & Implementation Plan (Phase 3)
 # ==============================================================================
 
 stages:
@@ -18,14 +18,15 @@ variables:
 # -------------------------------------------------------------
 sast:
   stage: sast
+  image: returntocorp/semgrep:latest
   script:
-    - echo "=== [STAGE 1] SAST Placeholder ==="
-    - echo "semgrep placeholder"
-    # Phase 3 integration:
-    # semgrep --config p/owasp-top-ten --config security/semgrep/ --error --json -o semgrep.json app/
+    - echo "=== [STAGE 1] SAST - Semgrep Static Application Security Testing ==="
+    - mkdir -p reports
+    - semgrep --config p/owasp-top-ten --config security/semgrep/rules.yml --error --json -o reports/semgrep.json app/
   artifacts:
     paths:
-      - semgrep.json
+      - reports/semgrep.json
+      - reports/semgrep.sarif
     when: always
 
 # -------------------------------------------------------------
